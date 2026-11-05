@@ -325,6 +325,8 @@ int main(int argc, char **argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &number_of_procs);
     MPI_Comm_rank(MPI_COMM_WORLD, &proc_id);
 
+    if (!proc_id) std::cout << "Using " << number_of_procs << " processes" << std::endl;
+
     create_node_scalars_type();
 
     //printf("Hello World!");
