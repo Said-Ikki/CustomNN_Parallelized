@@ -410,15 +410,21 @@ int main(int argc, char **argv) {
 
     //std::cout << "creating Layer 1" << std::endl;
     hidden_layer h0;
-    create_hidden_layer(&h0, random_weights(3, 1), tanh_calc);
+     if (create_hidden_layer(&h0, random_weights(3, 1), tanh_calc) != 0) {
+         std::cout << "Error creating hidden_layer" << std::endl;
+     }
 
     //std::cout << "creating Layer 2" << std::endl;
     hidden_layer h1;
-    create_hidden_layer(&h1, random_weights(3, 3), tanh_calc);
+    if (create_hidden_layer(&h1, random_weights(3, 3), tanh_calc) != 0) {
+        std::cout << "Error creating hidden_layer" << std::endl;
+    }
 
     //std::cout << "creating Layer 3" << std::endl;
     hidden_layer h3;
-    create_output_layer(&h3, random_weights(1, 3), linear_calc);
+    if (create_output_layer(&h3, random_weights(1, 3), linear_calc) != 0) {
+        std::cout << "Error creating hidden_layer" << std::endl;
+    }
     
     std::cout << proc_id << ") Layers Created" << std::endl;
 
