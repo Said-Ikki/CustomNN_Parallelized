@@ -319,58 +319,68 @@ hidden_layer backward_prop_layer(hidden_layer hl, float learning_rate, std::vect
     return hl;
 }
 
+    // this creates a hidden layer node using the given parameters
 hidden_layer_node create_hidden_layer_node(std::vector<float> weights, float (*func)(float)) {
     hidden_layer_node hidden_node;
     hidden_node.weights = weights;
     hidden_node.func = func;
     hidden_node.is_output_node = IS_HIDDEN_NODE;
+
     return hidden_node;
 }
 
+    // this creates an output layer node using the given parameters
 hidden_layer_node create_output_layer_node(std::vector<float> weights, float (*func)(float)) {
     hidden_layer_node output_node;
     output_node.weights = weights;
     output_node.func = func;
     output_node.is_output_node = IS_OUTPUT_NODE;
+
     return output_node;
 }
 
+    // this combines the given nodes into a single layer
 hidden_layer combine_nodes_into_layer(std::vector<hidden_layer_node> nodes, int is_output_layer) {
     hidden_layer layer;
     layer.layer_weights = nodes;
     layer.is_output_layer = is_output_layer;
+
     return layer;
 }
 
-    // creates a hidden layer and it's nodes using the parameters given
+    // this creates a hidden layer and it's nodes using the parameters given
 int create_hidden_layer(hidden_layer *hidden_layer, std::vector<std::vector<float>> weights_matrix, float (*func)(float)) {
     for (int i = 0; i < weights_matrix.size(); i++) {
         hidden_layer->layer_weights.push_back(create_hidden_layer_node(weights_matrix[i], func));
     }
     hidden_layer->is_output_layer = IS_HIDDEN_LAYER;
+
     return 0;
 }
 
-// creates an output layer and it's nodes using the parameters given
+    // this creates an output layer and it's nodes using the parameters given
 int create_output_layer(hidden_layer *output_layer, std::vector<std::vector<float>> weights_matrix, float (*func)(float)) {
     for (int i = 0; i < weights_matrix.size(); i++) {
         output_layer->layer_weights.push_back(create_output_layer_node(weights_matrix[i], func));
     }
     output_layer->is_output_layer = IS_OUTPUT_LAYER;
+
     return 0;
 }
 
+    // this generates random weights between 0 and 1 for layers
 std::vector<std::vector<float>> random_weights(int layer_size, int prev_layer_size) {
     std::vector<std::vector<float>> weights_matrix;
     std::mt19937 rng(42);
     std::uniform_int_distribution<int> dist(0, 100);
+
     for(int i = 0; i < layer_size; i++) {
         std::vector<float> temp;
-        for(int j = 0; j < prev_layer_size; j++) {
+        for(int j = 0; j < prev_layer_size; j++)
             temp.push_back(dist(rng) / 100.0);
-        }
         weights_matrix.push_back(temp);
     }
+
     return weights_matrix;
 }
 
