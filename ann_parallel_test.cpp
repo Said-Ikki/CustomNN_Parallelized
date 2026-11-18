@@ -409,22 +409,17 @@ int main(int argc, char **argv) {
     float learning_rate = 0.1; 
 
     //std::cout << "creating Layer 1" << std::endl;
-    hidden_layer h0;
-     if (create_hidden_layer(&h0, random_weights(3, 1), tanh_calc) != 0) {
+    hidden_layer h0, h1, h3;
+     if (create_hidden_layer(&h0, random_weights(3, 1), tanh_calc) != 0)
          std::cout << "Error creating hidden_layer" << std::endl;
-     }
 
     //std::cout << "creating Layer 2" << std::endl;
-    hidden_layer h1;
-    if (create_hidden_layer(&h1, random_weights(3, 3), tanh_calc) != 0) {
+    if (create_hidden_layer(&h1, random_weights(3, 3), tanh_calc) != 0)
         std::cout << "Error creating hidden_layer" << std::endl;
-    }
 
     //std::cout << "creating Layer 3" << std::endl;
-    hidden_layer h3;
-    if (create_output_layer(&h3, random_weights(1, 3), linear_calc) != 0) {
+    if (create_output_layer(&h3, random_weights(1, 3), linear_calc) != 0)
         std::cout << "Error creating hidden_layer" << std::endl;
-    }
     
     std::cout << proc_id << ") Layers Created" << std::endl;
 
