@@ -385,13 +385,19 @@ std::vector<std::vector<float>> random_weights(int layer_size, int prev_layer_si
 }
 
 int main(int argc, char **argv) {
-
+        //
+        // MPI Initialization
+        //
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &number_of_procs);
     MPI_Comm_rank(MPI_COMM_WORLD, &proc_id);
 
     if (!proc_id)
         std::cout << "Using " << number_of_procs << " processes" << std::endl;
+
+        //
+        // Input/Target Initialization
+        //
 
     create_node_scalars_type();
 
@@ -401,11 +407,13 @@ int main(int argc, char **argv) {
     //      1. the number of weights per node equals the number of nodes from the previous layer
     //      2. you can go bananas with the number of nodes per layer as long as the weight count is maintained
 
-    std::vector<float> inputs = {1.0, 2.0, 3.0}; // three inputs
-    std::vector<float> targets = {1.0, 2.0}; 
+    //std::vector<float> inputs = {1.0, 2.0, 3.0}; // three inputs
+    //std::vector<float> targets = {1.0, 2.0};
+    int inputs = 1;
+    int targets = 1;
 
-    std::vector<std::vector<float>> training_inputs(100, std::vector<float>(1, 0)); // three inputs
-    std::vector<std::vector<float>> training_targets(100, std::vector<float>(1, 0));
+    std::vector<std::vector<float>> training_inputs(100, std::vector<float>(inputs, 0)); // three inputs
+    std::vector<std::vector<float>> training_targets(100, std::vector<float>(targets, 0));
 
     std::cout << proc_id << ") Generating Test Cases" << std::endl;
     int count = 100;
@@ -416,62 +424,67 @@ int main(int argc, char **argv) {
 
     }
 
-    float learning_rate = 0.1; 
+    float learning_rate = 0.1;
 
-    //std::cout << "creating Layer 1" << std::endl;
-    hidden_layer h0, h1, h3;
-     if (create_hidden_layer(&h0, random_weights(3, 1), tanh_calc) != 0)
-         std::cout << "Error creating hidden_layer" << std::endl;
+    //
+    // Model Initialization
+    //
 
-    //std::cout << "creating Layer 2" << std::endl;
-    if (create_hidden_layer(&h1, random_weights(3, 3), tanh_calc) != 0)
-        std::cout << "Error creating hidden_layer" << std::endl;
+    std::vector<hidden_layer> hl;
+    std::vector<int> layer_size = {1, 2, 3};
+    layer_size.insert(layer_size.begin(), inputs);
+    for (int i = 0; i < layer_size.size() - 1; i++) {
+        hidden_layer temp;
+        if (create_hidden_layer(&temp, random_weights(layer_size.at(i + 1), layer_size.at(i)), tanh_calc) != 0)
+            std::cout << "Error creating hidden_layer" << std::endl;
+        hl.push_back(temp);
+    }
+    hidden_layer output_layer;
+    if (create_output_layer(&output_layer, random_weights(targets, layer_size.at(layer_size.size() - 1)), linear_calc) != 0)
+        std::cout << "Error creating output_layer" << std::endl;
+    hl.push_back(output_layer);
 
-    //std::cout << "creating Layer 3" << std::endl;
-    if (create_output_layer(&h3, random_weights(1, 3), linear_calc) != 0)
-        std::cout << "Error creating hidden_layer" << std::endl;
-    
     std::cout << proc_id << ") Layers Created" << std::endl;
 
+    //
+    // Training
+    //
 
     double time = -1.0 * MPI_Wtime();
 
     int epochs = 1000;
     for(int i = 0; i < epochs; i++) {
-        for(int k = 0; k < training_inputs.size(); k++) {
-            //std::cout << "Epoch " << i << std::endl;
-            //std::cout << "first layer" << std::endl;
-            h0 = forward_pass_layer(h0, training_inputs.at(k));
+        std::cout << proc_id << ") Epoch " << i << std::endl;
+        for(int j = 0; j < training_inputs.size(); j++) {
+            //std::cout << proc_id << ") forward pass " << std::endl;
+            hl.at(0) = forward_pass_layer(hl.at(0), training_inputs.at(j));
             MPI_Barrier(MPI_COMM_WORLD);
-            //std::cout << "second layer" << std::endl;
-            h1 = forward_pass_layer(h1, h0.outputs);
-            MPI_Barrier(MPI_COMM_WORLD);
-            //std::cout << "third layer" << std::endl;
-            h3 = forward_pass_layer(h3, h1.outputs);
-            MPI_Barrier(MPI_COMM_WORLD);
+            for (int k = 1; k < hl.size(); k++) {
+                hl.at(k) = forward_pass_layer(hl.at(k), hl.at(k - 1).outputs);
+                MPI_Barrier(MPI_COMM_WORLD);
+            }
 
-            //std::cout << "backprop third layer" << std::endl;
-            h3 = backward_prop_layer(h3, learning_rate, training_targets.at(k));
-            //std::cout << "backprop second layer: getting error column" << std::endl;
+            //std::cout << proc_id << ") backward prop " << std::endl;
+            //std::cout << proc_id << ") back prop for hl[" << hl.size() - 1 << "]" << std::endl;
+            hl.at(hl.size() - 1) = backward_prop_layer(hl.at(hl.size() - 1), learning_rate, training_targets.at(j));
             std::vector<float> error_column = std::vector<float>();
-            for(int j = 0; j < h3.layer_weights.size(); j++) {
-                error_column = get_column_error_terms(h3, j);
-            }
-            //std::cout << "backprop second layer: calculating" << std::endl;
-            h1 = backward_prop_layer(h1, learning_rate, error_column, h3);
 
-            //std::cout << "backprop first layer: getting error column" << std::endl;
-            for(int j = 0; j < h1.layer_weights.size(); j++) {
-                error_column = get_column_error_terms(h1, j);
+            for(int k = hl.size() - 1; k > 0; k--) {
+                //std::cout << proc_id << ") error column for hl[" << k << "]" << std::endl;
+                for (int l = 0; l < hl.at(k).layer_weights.size(); l++) {
+                    //std::cout << proc_id << ") hl[" << k << "], " << l << ", layer_weights.size() = " << hl.at(k).layer_weights.size() << std::endl;
+                    error_column = get_column_error_terms(hl.at(k), l);
+                }
+                //std::cout << proc_id << ") back prop for hl[" << k - 1 << "]" << std::endl;
+                hl.at(k - 1) = backward_prop_layer(hl.at(k - 1), learning_rate, error_column, hl.at(k));
             }
-            h0 = backward_prop_layer(h0, learning_rate, error_column, h1);
         }
         if( (i % 250 == 0 || i == 0 ) && proc_id == 0) {
             std::cout << "Weights after " << i << " Epochs" << std::endl;
-            for(auto i : h3.layer_weights) {
+            for(auto j : hl.at(hl.size() - 1).layer_weights) {
                 std::cout << "Node " << std::endl;
-                for(auto j : i.weights) {
-                    std::cout << j << std::endl;
+                for(auto k : j.weights) {
+                    std::cout << k << std::endl;
 
                 }
             }
@@ -479,11 +492,10 @@ int main(int argc, char **argv) {
     }
 
     time += MPI_Wtime();
-    
 
     if(proc_id == 0) {
         std::cout << "Weights after 1000 Epochs" << std::endl;
-        for(auto i : h3.layer_weights) {
+        for(auto i : hl.at(hl.size() - 1).layer_weights) {
             std::cout << "Node " << std::endl;
             for(auto j : i.weights) {
                 std::cout << j << std::endl;
@@ -494,13 +506,13 @@ int main(int argc, char **argv) {
 
     }
 
-    
-    h0 = forward_pass_layer(h0, training_inputs.at(33));
-    h1 = forward_pass_layer(h1, h0.outputs);
-    h3 = forward_pass_layer(h3, h1.outputs);
+    hl.at(0) = forward_pass_layer(hl.at(0), training_inputs.at(33));
+    for (int i = 1; i < hl.size(); i++) {
+        hl.at(i) = forward_pass_layer(hl.at(i), hl.at(i - 1).outputs);
+    }
         
     if(proc_id == 0) {  
-        std::cout << "Accuracy Check: 33^2 = " << h3.outputs.at(0) * 100 * 100 << " (well not really)" << std::endl;
+        std::cout << "Accuracy Check: 33^2 = " << hl.at(hl.size() - 1).outputs.at(0) * 100 * 100 << " (well not really)" << std::endl;
         std::cout << "Time to Complete: " << time << " (s)" << std::endl;
     }
 
