@@ -2,7 +2,10 @@
 #include <vector>
 #include <cmath>
 #include <iostream>
-#include <random>
+#include <cerrno>
+#include <stdexcept>
+#include <cstdlib>
+#include <ctime>
 
 #include <mpi.h>
 
@@ -234,9 +237,9 @@ hidden_layer_node backward_prop_single_node(hidden_layer_node node, float learni
         }
         
 
-        for(auto i : node.inputs) {
+        //for(auto i : node.inputs) {
             //std::cout << "Input: " << i << std::endl;
-        }
+        //}
         //std::cout << "Error Term: " << err_term << std::endl;
         
         float weight_change = learning_rate * node.inputs.at(i) * err_term;
@@ -304,7 +307,7 @@ hidden_layer backward_prop_layer(hidden_layer hl, float learning_rate, std::vect
 
     if(hl.is_output_layer == IS_OUTPUT_LAYER) {
         for(int i = start; i < end; i++) {
-            std::vector<float> single_target = {targets.at(i)};
+            std::vector<float> single_target(1, targets.at(i));
             hl.layer_weights.at(i) = backward_prop_single_node(hl.layer_weights.at(i), learning_rate, single_target);
         }
     }
@@ -349,7 +352,7 @@ hidden_layer combine_nodes_into_layer(std::vector<hidden_layer_node> nodes, int 
 }
 
     // this creates a hidden layer and it's nodes using the parameters given
-int create_hidden_layer(hidden_layer *hidden_layer, std::vector<std::vector<float>> weights_matrix, float (*func)(float)) {
+int create_hidden_layer(hidden_layer *hidden_layer, std::vector<std::vector<float> > weights_matrix, float (*func)(float)) {
     for (int i = 0; i < weights_matrix.size(); i++) {
         hidden_layer->layer_weights.push_back(create_hidden_layer_node(weights_matrix[i], func));
     }
@@ -359,7 +362,7 @@ int create_hidden_layer(hidden_layer *hidden_layer, std::vector<std::vector<floa
 }
 
     // this creates an output layer and it's nodes using the parameters given
-int create_output_layer(hidden_layer *output_layer, std::vector<std::vector<float>> weights_matrix, float (*func)(float)) {
+int create_output_layer(hidden_layer *output_layer, std::vector<std::vector<float> > weights_matrix, float (*func)(float)) {
     for (int i = 0; i < weights_matrix.size(); i++) {
         output_layer->layer_weights.push_back(create_output_layer_node(weights_matrix[i], func));
     }
@@ -369,15 +372,14 @@ int create_output_layer(hidden_layer *output_layer, std::vector<std::vector<floa
 }
 
     // this generates random weights between 0 and 1 for layers
-std::vector<std::vector<float>> random_weights(int layer_size, int prev_layer_size) {
-    std::vector<std::vector<float>> weights_matrix;
-    std::mt19937 rng(42);
-    std::uniform_int_distribution<int> dist(0, 100);
+std::vector<std::vector<float> > random_weights(int layer_size, int prev_layer_size) {
+    std::vector<std::vector<float> > weights_matrix;
+    srand(42);
 
     for(int i = 0; i < layer_size; i++) {
         std::vector<float> temp;
         for(int j = 0; j < prev_layer_size; j++)
-            temp.push_back(dist(rng) / 100.0);
+            temp.push_back((rand() % 101) / 100.0);
         weights_matrix.push_back(temp);
     }
 
@@ -412,8 +414,8 @@ int main(int argc, char **argv) {
     int inputs = 1;
     int targets = 1;
 
-    std::vector<std::vector<float>> training_inputs(100, std::vector<float>(inputs, 0)); // three inputs
-    std::vector<std::vector<float>> training_targets(100, std::vector<float>(targets, 0));
+    std::vector<std::vector<float> > training_inputs(100, std::vector<float>(inputs, 0)); // three inputs
+    std::vector<std::vector<float> > training_targets(100, std::vector<float>(targets, 0));
 
     std::cout << proc_id << ") Generating Test Cases" << std::endl;
     int count = 100;
@@ -431,7 +433,7 @@ int main(int argc, char **argv) {
     //
 
     std::vector<hidden_layer> hl;
-    std::vector<int> layer_size = {3, 3, 3};
+    std::vector<int> layer_size(8, 20);
     layer_size.insert(layer_size.begin(), inputs);
     for (int i = 0; i < layer_size.size() - 1; i++) {
         hidden_layer temp;
@@ -454,7 +456,7 @@ int main(int argc, char **argv) {
 
     int epochs = 1000;
     for(int i = 0; i < epochs; i++) {
-        //std::cout << proc_id << ") Epoch " << i << std::endl;
+        std::cout << proc_id << ") Epoch " << i << std::endl;
         for(int j = 0; j < training_inputs.size(); j++) {
             //std::cout << proc_id << ") forward pass " << std::endl;
             hl.at(0) = forward_pass_layer(hl.at(0), training_inputs.at(j));
@@ -481,6 +483,7 @@ int main(int argc, char **argv) {
         }
         if( (i % 250 == 0 || i == 0 ) && proc_id == 0) {
             std::cout << "Weights after " << i << " Epochs" << std::endl;
+            /*
             for(auto j : hl.at(hl.size() - 1).layer_weights) {
                 std::cout << "Node " << std::endl;
                 for(auto k : j.weights) {
@@ -488,13 +491,15 @@ int main(int argc, char **argv) {
 
                 }
             }
+            */
         }
     }
 
     time += MPI_Wtime();
 
     if(proc_id == 0) {
-        std::cout << "Weights after 1000 Epochs" << std::endl;
+        //std::cout << "Weights after 1000 Epochs" << std::endl;
+        /*
         for(auto i : hl.at(hl.size() - 1).layer_weights) {
             std::cout << "Node " << std::endl;
             for(auto j : i.weights) {
@@ -502,6 +507,7 @@ int main(int argc, char **argv) {
 
             }
         }
+        */
     
 
     }
@@ -588,15 +594,9 @@ int main(int argc, char **argv) {
 }
 
 /*
-
 compilation on Said's machine
 cl.exe /EHsc /MD "/IC:\Program Files (x86)\Microsoft SDKs\MPI\Include" ann_parallel_test.cpp /Fe:ann_parallel_test.exe /link "/LIBPATH:C:\Program Files (x86)\Microsoft SDKs\MPI\Lib\x64" msmpi.lib
 
 running on Said's machine
 mpiexec -n 2 ann_parallel_test.exe
-
-
-
-
-
 */
