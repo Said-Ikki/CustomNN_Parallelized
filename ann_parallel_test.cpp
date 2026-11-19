@@ -431,7 +431,7 @@ int main(int argc, char **argv) {
     //
 
     std::vector<hidden_layer> hl;
-    std::vector<int> layer_size = {1, 2, 3};
+    std::vector<int> layer_size = {3, 3, 3};
     layer_size.insert(layer_size.begin(), inputs);
     for (int i = 0; i < layer_size.size() - 1; i++) {
         hidden_layer temp;
@@ -454,7 +454,7 @@ int main(int argc, char **argv) {
 
     int epochs = 1000;
     for(int i = 0; i < epochs; i++) {
-        std::cout << proc_id << ") Epoch " << i << std::endl;
+        //std::cout << proc_id << ") Epoch " << i << std::endl;
         for(int j = 0; j < training_inputs.size(); j++) {
             //std::cout << proc_id << ") forward pass " << std::endl;
             hl.at(0) = forward_pass_layer(hl.at(0), training_inputs.at(j));
